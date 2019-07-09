@@ -231,6 +231,65 @@ function declarative.load_into_db(dc_table)
 end
 
 
+function declarative.export_from_db(fd)
+  local schemas = {}
+  for _, dao in pairs(kong.db.daos) do
+    table.insert(schemas, dao.schema)
+  end
+  local sorted_schemas, err = topological_sort(schemas)
+  if not sorted_schemas then
+    return nil, err
+  end
+
+  fd:write(declarative.to_yaml_string({
+    _format_version = "1.1",
+  }))
+
+  for _, schema in ipairs(sorted_schemas) do
+    if schema.db_export == false then
+      goto continue
+    end
+
+    local name = schema.name
+    local fks = {}
+    for name, field in schema:each_field() do
+      if field.type == "foreign" then
+        table.insert(fks, name)
+      end
+    end
+
+    local entities = {}
+    local any = false
+
+    for row, err in kong.db[name]:each() do
+      for _, fname in ipairs(fks) do
+        if type(row[fname]) == "table" then
+          local id = row[fname].id
+          if id ~= nil then
+            row[fname] = id
+          end
+        end
+      end
+      table.insert(entities, row)
+
+      -- TODO include tags
+
+      any = true
+    end
+
+    if any then
+      fd:write(declarative.to_yaml_string({
+        [name] = entities,
+      }))
+    end
+
+    ::continue::
+  end
+
+  return true
+end
+
+
 local function remove_nulls(tbl)
   for k,v in pairs(tbl) do
     if v == null then
