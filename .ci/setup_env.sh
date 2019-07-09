@@ -27,6 +27,7 @@ kong-ngx-build \
     --openresty-patches $OPENRESTY_PATCHES_BRANCH \
     --luarocks $LUAROCKS \
     --openssl $OPENSSL \
+    --pcre $PCRE \
     -j $JOBS
 
 OPENSSL_INSTALL=$INSTALL_ROOT/openssl
